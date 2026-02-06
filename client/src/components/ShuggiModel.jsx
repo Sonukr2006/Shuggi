@@ -1,46 +1,87 @@
-import { useRef, useEffect } from "react";
-import { useFrame } from "@react-three/fiber";
-import { useGLTF } from "@react-three/drei";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 import * as THREE from "three";
 
-export default function ShuggiModel() {
-  const { scene } = useGLTF("/shuggi.glb");
-
-  const groupRef = useRef();   // stable parent
-  const modelRef = useRef();   // actual model
+const ShuggiModel = forwardRef(function ShuggiModel(_props, ref) {
+  const groupRef = useRef();
+  const vrmRef = useRef();
 
   useEffect(() => {
-    if (!modelRef.current) return;
+    const loader = new GLTFLoader();
 
-    // 🔥 calculate bounding box ONCE
-    const box = new THREE.Box3().setFromObject(modelRef.current);
-    const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3());
+    // 🔥 THIS is the key (new API)
+    loader.register((parser) => new VRMLoaderPlugin(parser));
 
-    // center model inside group
-    modelRef.current.position.sub(center);
+    let currentVrm = null;
 
-    // normalize height
-    const height = size.y || 1;
-    const scale = 1.8 / height;
-    modelRef.current.scale.setScalar(scale);
+    loader.load(
+      "/shuggi_final.vrm",
+      (gltf) => {
+        const vrm = gltf.userData.vrm;
+
+        // VRM standard cleanup
+        VRMUtils.removeUnnecessaryVertices(gltf.scene);
+        VRMUtils.combineSkeletons(gltf.scene);
+
+        const scene = vrm.scene;
+        scene.rotation.y = Math.PI; // face camera
+        scene.traverse((o) => (o.frustumCulled = false));
+
+        // Auto-center and scale so the avatar appears in the middle of the view.
+        scene.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(scene);
+        if (!box.isEmpty()) {
+          const size = new THREE.Vector3();
+          box.getSize(size);
+
+          const targetHeight = 1.6; // meters (roughly human height)
+          if (size.y > 0) {
+            const scale = targetHeight / size.y;
+            scene.scale.setScalar(scale);
+          }
+
+          scene.updateMatrixWorld(true);
+          const boxScaled = new THREE.Box3().setFromObject(scene);
+          if (!boxScaled.isEmpty()) {
+            const centerScaled = new THREE.Vector3();
+            boxScaled.getCenter(centerScaled);
+
+            scene.position.set(-centerScaled.x, -boxScaled.min.y, -centerScaled.z);
+          }
+        }
+
+        if (groupRef.current) {
+          groupRef.current.add(scene);
+        }
+        vrmRef.current = vrm;
+        currentVrm = vrm;
+      },
+      undefined,
+      (err) => {
+        console.error("❌ VRM load failed:", err);
+      }
+    );
+
+    return () => {
+      if (currentVrm && groupRef.current) {
+        groupRef.current.remove(currentVrm.scene);
+        currentVrm.dispose?.();
+        vrmRef.current = null;
+      }
+    };
   }, []);
 
-  useFrame(({ clock }) => {
-    if (!groupRef.current) return;
+  useImperativeHandle(ref, () => ({
+    get group() {
+      return groupRef.current;
+    },
+    get vrm() {
+      return vrmRef.current;
+    },
+  }));
 
-    const t = clock.elapsedTime;
+  return <group ref={groupRef} />;
+});
 
-    // 🫁 breathing (group level)
-    groupRef.current.position.y = Math.sin(t) * 0.04;
-
-    // 🙂 subtle sway
-    groupRef.current.rotation.y = Math.sin(t * 0.4) * 0.04;
-  });
-
-  return (
-    <group ref={groupRef}>
-      <primitive ref={modelRef} object={scene} />
-    </group>
-  );
-}
+export default ShuggiModel;

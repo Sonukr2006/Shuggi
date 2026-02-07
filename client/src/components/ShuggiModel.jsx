@@ -3,7 +3,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 import * as THREE from "three";
 
-const ShuggiModel = forwardRef(function ShuggiModel(_props, ref) {
+const ShuggiModel = forwardRef(function ShuggiModel({ onReady },ref ) {
   const groupRef = useRef();
   const vrmRef = useRef();
 
@@ -56,6 +56,7 @@ const ShuggiModel = forwardRef(function ShuggiModel(_props, ref) {
         }
         vrmRef.current = vrm;
         currentVrm = vrm;
+        onReady?.();
       },
       undefined,
       (err) => {
@@ -79,6 +80,9 @@ const ShuggiModel = forwardRef(function ShuggiModel(_props, ref) {
     get vrm() {
       return vrmRef.current;
     },
+    get isReady() {
+      return !!vrmRef.current;
+    }
   }));
 
   return <group ref={groupRef} />;

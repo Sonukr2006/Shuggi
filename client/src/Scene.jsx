@@ -1,11 +1,12 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 
 import ShuggiModel from "./components/ShuggiModel";
 import Blink from "./components/Blink";
 import Idle from "./components/Idle";
+import HeadLookAt from "./components/HeadLookAt";
 
 function VrmUpdater({ avatarRef }) {
   useFrame((_, delta) => {
@@ -17,6 +18,12 @@ function VrmUpdater({ avatarRef }) {
 
 export default function Scene() {
   const avatarRef = useRef(null);
+  const [avatarReady, setAvatarReady] = useState(false);
+
+  const handleAvatarReady = () => {
+    setAvatarReady(true);
+  };
+
 
   return (
     <Canvas
@@ -37,7 +44,7 @@ export default function Scene() {
       />
 
       <VrmUpdater avatarRef={avatarRef} />
-      <ShuggiModel
+      {/* <ShuggiModel
         ref={(r) => {
           avatarRef.current = r;
           if (r?.vrm && !window.__vrmLogged) {
@@ -46,7 +53,16 @@ export default function Scene() {
         }}
       />
       <Blink avatarRef={avatarRef} />
-      <Idle avatarRef={avatarRef} />
+      <Idle avatarRef={avatarRef} /> */}
+      {/* <HeadLookAt avatarRef={avatarRef}/> */}
+      <ShuggiModel ref={avatarRef} onReady={handleAvatarReady} />
+      {avatarReady && (
+        <>
+          <Blink avatarRef={avatarRef} />
+          <HeadLookAt avatarRef={avatarRef} />
+          <Idle avatarRef={avatarRef} />
+        </>
+      )}
 
       <OrbitControls
         enablePan={false}

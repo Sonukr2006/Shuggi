@@ -9,7 +9,7 @@ body,
 
 body {
   overflow: hidden;
-  background: radial-gradient(120% 120% at 50% 12%, #5d5858 0%, #8ca6ce 42%, #1c283d 100%);
+  background: radial-gradient(120% 120% at 50% 12%, #655353 0%, #263955 22%, #000000 100%);
 }
 
 #root {
@@ -22,4 +22,8 @@ canvas {
   width: 100% !important;
   height: 100% !important;
   display: block;
+}
+
+.shuggiLogo{
+  background: black;
 }

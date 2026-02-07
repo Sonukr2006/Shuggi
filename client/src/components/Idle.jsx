@@ -1,15 +1,10 @@
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 
-/**
- * Subtle idle breathing animation
- * - works on avatar group (safe)
- * - can be enabled/disabled
- * - production-ready
- */
 export default function Idle({ avatarRef, enabled = true }) {
   const t = useRef(0);
   const baseY = useRef(null);
+  const currentY = useRef(0);
 
   useFrame((_, delta) => {
     if (!enabled) return;
@@ -17,14 +12,20 @@ export default function Idle({ avatarRef, enabled = true }) {
     const group = avatarRef.current?.group;
     if (!group) return;
 
-     if (baseY.current === null) {
+    // 🔒 lock base Y once
+    if (baseY.current === null) {
       baseY.current = group.position.y;
+      currentY.current = group.position.y;
     }
 
     t.current += delta;
 
-    // subtle breathing
-    group.position.y = baseY.current + Math.sin(t.current * 1.2) * 0.04;
+    const targetY =
+      baseY.current + Math.sin(t.current * 1.2) * 0.04;
+
+    // 🧈 smooth interpolation (KEY FIX)
+    currentY.current += (targetY - currentY.current) * 0.08;
+    group.position.y = currentY.current;
   });
 
   return null;

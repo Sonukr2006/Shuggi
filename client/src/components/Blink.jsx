@@ -1,10 +1,14 @@
 import { useFrame } from "@react-three/fiber";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 export default function Blink({ avatarRef, enabled = true }) {
   const timer = useRef(0);
-  const nextBlink = useRef(2 + Math.random() * 3);
+  const nextBlink = useRef(3);
   const duration = 0.12;
+
+  useEffect(() => {
+    nextBlink.current = 2 + Math.random() * 3;
+  }, []);
 
   useFrame((_, delta) => {
     if (!enabled) return;

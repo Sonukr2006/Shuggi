@@ -3,11 +3,12 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 import * as THREE from "three";
 
-const ShuggiModel = forwardRef(function ShuggiModel({ onReady },ref ) {
+const ShuggiModel = forwardRef(function ShuggiModel({ onReady }, ref) {
   const groupRef = useRef();
   const vrmRef = useRef();
 
   useEffect(() => {
+    const groupNode = groupRef.current;
     const loader = new GLTFLoader();
 
     // 🔥 THIS is the key (new API)
@@ -51,8 +52,8 @@ const ShuggiModel = forwardRef(function ShuggiModel({ onReady },ref ) {
           }
         }
 
-        if (groupRef.current) {
-          groupRef.current.add(scene);
+        if (groupNode) {
+          groupNode.add(scene);
         }
         vrmRef.current = vrm;
         currentVrm = vrm;
@@ -65,13 +66,13 @@ const ShuggiModel = forwardRef(function ShuggiModel({ onReady },ref ) {
     );
 
     return () => {
-      if (currentVrm && groupRef.current) {
-        groupRef.current.remove(currentVrm.scene);
+      if (currentVrm && groupNode) {
+        groupNode.remove(currentVrm.scene);
         currentVrm.dispose?.();
         vrmRef.current = null;
       }
     };
-  }, []);
+  }, [onReady]);
 
   useImperativeHandle(ref, () => ({
     get group() {
@@ -82,7 +83,7 @@ const ShuggiModel = forwardRef(function ShuggiModel({ onReady },ref ) {
     },
     get isReady() {
       return !!vrmRef.current;
-    }
+    },
   }));
 
   return <group ref={groupRef} />;

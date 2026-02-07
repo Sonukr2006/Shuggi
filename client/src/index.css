@@ -10,12 +10,12 @@ body,
 body {
   overflow: hidden;
   background: radial-gradient(120% 120% at 50% 12%, #655353 0%, #263955 22%, #000000 100%);
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  color: #f9f7f3;
 }
 
 #root {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
 }
 
 canvas {
@@ -24,6 +24,140 @@ canvas {
   display: block;
 }
 
-.shuggiLogo{
-  background: black;
+.appRoot {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.controlPanel {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: min(360px, calc(100% - 40px));
+  padding: 18px;
+  border-radius: 16px;
+  background: linear-gradient(160deg, rgba(13, 20, 32, 0.86), rgba(11, 26, 18, 0.82));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.34);
+  z-index: 10;
+}
+
+.controlPanel h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.tagline {
+  margin: 4px 0 14px;
+  opacity: 0.82;
+  font-size: 0.92rem;
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+  font-size: 0.92rem;
+}
+
+.statusDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #93a1ad;
+  box-shadow: 0 0 0 5px rgba(147, 161, 173, 0.24);
+}
+
+.status-listening {
+  background: #3ddc84;
+  box-shadow: 0 0 0 5px rgba(61, 220, 132, 0.25);
+}
+
+.status-thinking {
+  background: #ffbe3d;
+  box-shadow: 0 0 0 5px rgba(255, 190, 61, 0.24);
+}
+
+.status-speaking {
+  background: #3da9ff;
+  box-shadow: 0 0 0 5px rgba(61, 169, 255, 0.25);
+}
+
+.buttonRow {
+  margin: 0 0 14px;
+}
+
+.primaryButton {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #071219;
+  background: linear-gradient(120deg, #ffd98e, #a9ffc8);
+}
+
+.primaryButton:hover {
+  filter: brightness(1.05);
+}
+
+.stopButton {
+  background: linear-gradient(120deg, #ffcba6, #ff7c72);
+}
+
+.switchRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  font-size: 0.92rem;
+}
+
+.switchRow input {
+  width: 16px;
+  height: 16px;
+}
+
+.errorText {
+  margin: 10px 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(244, 87, 87, 0.2);
+  border: 1px solid rgba(244, 87, 87, 0.5);
+  font-size: 0.88rem;
+}
+
+.latestCard {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(5, 10, 17, 0.47);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.latestCard h2 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.latestCard p {
+  margin: 6px 0;
+}
+
+@media (max-width: 768px) {
+  .controlPanel {
+    top: auto;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+  }
 }

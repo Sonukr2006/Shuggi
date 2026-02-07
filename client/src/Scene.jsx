@@ -1,6 +1,6 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import * as THREE from "three";
 
 import ShuggiModel from "./components/ShuggiModel";
@@ -16,13 +16,13 @@ function VrmUpdater({ avatarRef }) {
   return null;
 }
 
-export default function Scene() {
+export default function Scene({ headLookAtEnabled = true }) {
   const avatarRef = useRef(null);
   const [avatarReady, setAvatarReady] = useState(false);
 
-  const handleAvatarReady = () => {
+  const handleAvatarReady = useCallback(() => {
     setAvatarReady(true);
-  };
+  }, []);
 
 
   return (
@@ -59,7 +59,7 @@ export default function Scene() {
       {avatarReady && (
         <>
           <Blink avatarRef={avatarRef} />
-          <HeadLookAt avatarRef={avatarRef} />
+          {headLookAtEnabled ? <HeadLookAt avatarRef={avatarRef} /> : null}
           <Idle avatarRef={avatarRef} />
         </>
       )}

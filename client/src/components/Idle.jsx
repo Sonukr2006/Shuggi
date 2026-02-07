@@ -25,6 +25,7 @@ export default function Idle({ avatarRef, enabled = true }) {
 
     // 🧈 smooth interpolation (KEY FIX)
     currentY.current += (targetY - currentY.current) * 0.08;
+    // eslint-disable-next-line react-hooks/immutability
     group.position.y = currentY.current;
   });
 

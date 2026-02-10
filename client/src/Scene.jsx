@@ -7,6 +7,7 @@ import ShuggiModel from "./components/ShuggiModel";
 import Blink from "./components/Blink";
 import Idle from "./components/Idle";
 import HeadLookAt from "./components/HeadLookAt";
+import LipSync from "./components/LipSync";
 
 function VrmUpdater({ avatarRef }) {
   useFrame((_, delta) => {
@@ -16,7 +17,7 @@ function VrmUpdater({ avatarRef }) {
   return null;
 }
 
-export default function Scene({ headLookAtEnabled = true }) {
+export default function Scene({ headLookAtEnabled = true, speaking = false }) {
   const avatarRef = useRef(null);
   const [avatarReady, setAvatarReady] = useState(false);
 
@@ -61,6 +62,7 @@ export default function Scene({ headLookAtEnabled = true }) {
           <Blink avatarRef={avatarRef} />
           {headLookAtEnabled ? <HeadLookAt avatarRef={avatarRef} /> : null}
           <Idle avatarRef={avatarRef} />
+          <LipSync avatarRef={avatarRef} speaking={speaking} />
         </>
       )}
 

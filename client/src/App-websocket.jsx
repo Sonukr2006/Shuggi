@@ -32,28 +32,70 @@ export default function App() {
   const audioChunksRef = useRef([]);
   const streamRef = useRef(null);
 
-  const [status, setStatus] = useState("idle");
-  const [error, setError] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [headLookAtEnabled, setHeadLookAtEnabled] = useState(true);
   const [voicePlaybackEnabled, setVoicePlaybackEnabled] = useState(true);
   const [history, setHistory] = useState([]);
   const [demoText, setDemoText] = useState("Namaste! Main Shuggi hoon. Kaise help karun?");
+  const [currentTranscript, setCurrentTranscript] = useState("");
+  const [showMetrics, setShowMetrics] = useState(false);
+
+  // WebSocket hook
+  const {
+    isConnected,
+    status: wsProcessingStatus,
+    error: wsError,
+    currentEmotion,
+    metrics,
+    sendVoiceAudio,
+    sendTextMessage,
+    requestMetrics,
+  } = useVoiceChat((response) => {
+    if (response.type === "transcript") {
+      setCurrentTranscript(response.content);
+    } else if (response.type === "response") {
+      const turnId =
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `turn-${Date.now()}`;
+      const conversationTurn = {
+        id: turnId,
+        timestamp: Date.now(),
+        transcript: currentTranscript,
+        reply: response.content,
+        emotion: response.emotion,
+        fromCache: response.fromCache,
+      };
+
+      setHistory((current) =>
+        [conversationTurn, ...current].slice(0, MAX_HISTORY_ITEMS)
+      );
+      speakReply(response.content, response.emotion);
+      setCurrentTranscript("");
+    }
+  });
 
   const latest = history[0] || null;
 
+  // Combined status for UI
+  const displayStatus = !isConnected ? "disconnected" : wsProcessingStatus;
+
   const statusLabel = useMemo(() => {
-    switch (status) {
-      case "listening":
+    if (!isConnected) return "Disconnected";
+    switch (wsProcessingStatus) {
+      case "transcribing":
         return "Listening...";
-      case "thinking":
+      case "processing":
+      case "analyzing":
         return "Thinking...";
       case "speaking":
         return "Speaking...";
-      default:
+      case "idle":
         return "Ready";
+      default:
+        return "Processing...";
     }
-  }, [status]);
+  }, [isConnected, wsProcessingStatus]);
 
   const stopStreamTracks = useCallback(() => {
     if (!streamRef.current) return;
@@ -72,32 +114,29 @@ export default function App() {
     };
   }, [stopStreamTracks]);
 
-  const speakReply = useCallback((text, emotion) => {
-    if (!voicePlaybackEnabled || !("speechSynthesis" in window) || !text) {
-      setStatus("idle");
-      return;
-    }
+  const speakReply = useCallback(
+    (text, emotion) => {
+      if (!voicePlaybackEnabled || !("speechSynthesis" in window) || !text) {
+        return;
+      }
 
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    const style = emotionTtsStyle[emotion] || emotionTtsStyle.neutral;
-    utterance.rate = style.rate;
-    utterance.pitch = style.pitch;
-    utterance.lang = detectSpeechLanguage(text);
-    utterance.onstart = () => setStatus("speaking");
-    utterance.onend = () => setStatus("idle");
-    utterance.onerror = () => setStatus("idle");
-    window.speechSynthesis.speak(utterance);
-  }, [voicePlaybackEnabled]);
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      const style = emotionTtsStyle[emotion] || emotionTtsStyle.neutral;
+      utterance.rate = style.rate;
+      utterance.pitch = style.pitch;
+      utterance.lang = detectSpeechLanguage(text);
+      window.speechSynthesis.speak(utterance);
+    },
+    [voicePlaybackEnabled]
+  );
 
   const playFrontendDemo = useCallback(() => {
     const message = demoText.trim();
     if (!message) {
-      setError("Type a message for Shuggi to speak.");
       return;
     }
 
-    setError("");
     const turnId =
       typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
         ? crypto.randomUUID()
@@ -110,7 +149,9 @@ export default function App() {
       emotion: "happy",
     };
 
-    setHistory((current) => [conversationTurn, ...current].slice(0, MAX_HISTORY_ITEMS));
+    setHistory((current) =>
+      [conversationTurn, ...current].slice(0, MAX_HISTORY_ITEMS)
+    );
     speakReply(message, "happy");
   }, [demoText, speakReply]);
 
@@ -118,13 +159,11 @@ export default function App() {
     if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
-    setStatus("idle");
   }, []);
 
   const handleRecordingStop = useCallback(async () => {
     try {
       setIsRecording(false);
-      setStatus("thinking");
       const mimeType = mediaRecorderRef.current?.mimeType || "audio/webm";
       const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
       audioChunksRef.current = [];
@@ -133,39 +172,21 @@ export default function App() {
         throw new Error("No audio was captured. Please try again.");
       }
 
-      const payload = await sendVoiceAudio(audioBlob);
-      const turnId =
-        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-          ? crypto.randomUUID()
-          : `turn-${Date.now()}`;
-      const conversationTurn = {
-        id: turnId,
-        timestamp: Date.now(),
-        transcript: payload.transcript || "",
-        reply: payload.reply || "",
-        emotion: payload.emotion || "neutral",
-      };
-
-      setHistory((current) => [conversationTurn, ...current].slice(0, MAX_HISTORY_ITEMS));
-      speakReply(conversationTurn.reply, conversationTurn.emotion);
-      if (!voicePlaybackEnabled) {
-        setStatus("idle");
-      }
+      // Send via WebSocket
+      await sendVoiceAudio(audioBlob);
     } catch (requestError) {
       console.error(requestError);
-      setError(requestError.message || "Voice chat failed.");
-      setStatus("idle");
     } finally {
       stopStreamTracks();
     }
-  }, [speakReply, stopStreamTracks, voicePlaybackEnabled]);
+  }, [sendVoiceAudio, stopStreamTracks]);
 
   const startRecording = useCallback(async () => {
     try {
-      if (isRecording || status === "thinking") {
+      if (isRecording || !isConnected) {
         return;
       }
-      setError("");
+
       if (typeof MediaRecorder === "undefined") {
         throw new Error("MediaRecorder is not supported in this browser.");
       }
@@ -191,14 +212,11 @@ export default function App() {
       }
       recorder.start();
       setIsRecording(true);
-      setStatus("listening");
     } catch (recordError) {
       console.error(recordError);
-      setError(recordError.message || "Microphone access failed.");
-      setStatus("idle");
       stopStreamTracks();
     }
-  }, [handleRecordingStop, isRecording, status, stopStreamTracks]);
+  }, [isRecording, isConnected, handleRecordingStop, stopStreamTracks]);
 
   const stopRecording = useCallback(() => {
     if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== "recording") {
@@ -210,25 +228,45 @@ export default function App() {
 
   return (
     <div className="appRoot">
-      <Scene headLookAtEnabled={headLookAtEnabled} speaking={status === "speaking"} />
+      <Scene
+        headLookAtEnabled={headLookAtEnabled}
+        speaking={wsProcessingStatus === "analyzing"}
+      />
 
       <section className="controlPanel">
-        <h1>Shuggi</h1>
-        <p className="tagline">Real-time local avatar assistant</p>
+        <h1>Shuggi AI</h1>
+        <p className="tagline">Real-time local avatar assistant (WebSocket v2.0)</p>
 
         <div className="statusRow">
-          <span className={`statusDot status-${status}`} />
-          <span>{statusLabel}</span>
+          <span className={`statusDot status-${displayStatus}`} />
+          <span>
+            {statusLabel}
+            {isConnected && (
+              <span style={{ marginLeft: "8px", fontSize: "0.85em", opacity: 0.7 }}>
+                ({currentEmotion})
+              </span>
+            )}
+          </span>
         </div>
+
+        {wsError && (
+          <div style={{ color: "#d32f2f", fontSize: "0.9em", marginBottom: "8px", padding: "4px" }}>
+            ⚠️ {wsError.error}: {wsError.message}
+          </div>
+        )}
 
         <div className="buttonRow">
           {!isRecording ? (
-            <button className="primaryButton" onClick={startRecording}>
-              Start Voice
+            <button
+              className="primaryButton"
+              onClick={startRecording}
+              disabled={!isConnected}
+            >
+              {isConnected ? "🎤 Start Voice" : "Connecting..."}
             </button>
           ) : (
             <button className="primaryButton stopButton" onClick={stopRecording}>
-              Stop & Send
+              ⏹️ Stop & Send
             </button>
           )}
         </div>
@@ -242,11 +280,16 @@ export default function App() {
         />
 
         <div className="buttonGrid">
-          <button className="primaryButton" type="button" onClick={playFrontendDemo}>
-            Speak from Frontend
+          <button
+            className="primaryButton"
+            type="button"
+            onClick={playFrontendDemo}
+            disabled={!isConnected}
+          >
+            💬 Speak Frontend
           </button>
           <button className="secondaryButton" type="button" onClick={stopSpeechPlayback}>
-            Stop Voice
+            🔇 Stop Voice
           </button>
         </div>
 
@@ -256,7 +299,7 @@ export default function App() {
             checked={headLookAtEnabled}
             onChange={(event) => setHeadLookAtEnabled(event.target.checked)}
           />
-          Head look-at
+          👀 Head look-at
         </label>
 
         <label className="switchRow">
@@ -265,15 +308,43 @@ export default function App() {
             checked={voicePlaybackEnabled}
             onChange={(event) => setVoicePlaybackEnabled(event.target.checked)}
           />
-          Browser voice playback
+          🔊 Browser voice playback
         </label>
 
-        {error ? <p className="errorText">{error}</p> : null}
+        <button
+          className="secondaryButton"
+          onClick={() => {
+            setShowMetrics(!showMetrics);
+            if (!showMetrics) requestMetrics();
+          }}
+          style={{ width: "100%", marginTop: "8px" }}
+        >
+          {showMetrics ? "📊 Hide Metrics" : "📊 Show Metrics"}
+        </button>
+
+        {showMetrics && metrics && (
+          <div
+            style={{
+              fontSize: "0.8em",
+              marginTop: "8px",
+              padding: "8px",
+              backgroundColor: "#f5f5f5",
+              borderRadius: "4px",
+              fontFamily: "monospace",
+            }}
+          >
+            <p><strong>Cache Hit Rate:</strong> {metrics.responseCache?.cacheHitRate}%</p>
+            <p><strong>Active Connections:</strong> {metrics.serverMetrics?.activeConnections}</p>
+            <p><strong>Messages Processed:</strong> {metrics.serverMetrics?.messagesProcessed}</p>
+            <p><strong>Cloud Queries:</strong> {metrics.queryRouter?.cloudQueries}</p>
+            <p><strong>Local Queries:</strong> {metrics.queryRouter?.localQueries}</p>
+          </div>
+        )}
 
         <div className="latestCard">
           <h2>Latest Turn</h2>
           <p>
-            <strong>You:</strong> {latest?.transcript || "No transcript yet"}
+            <strong>You:</strong> {latest?.transcript || currentTranscript || "Waiting..."}
           </p>
           <p>
             <strong>Shuggi:</strong> {latest?.reply || "No reply yet"}
@@ -281,6 +352,11 @@ export default function App() {
           <p>
             <strong>Emotion:</strong> {latest?.emotion || "neutral"}
           </p>
+          {latest?.fromCache && (
+            <p style={{ fontSize: "0.85em", color: "#2196f3", marginTop: "4px" }}>
+              💾 Response from cache
+            </p>
+          )}
         </div>
       </section>
     </div>

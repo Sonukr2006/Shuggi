@@ -1,9 +1,15 @@
 import cors from "cors";
 import express from "express";
+import { createServer } from "http";
 import { config } from "./config.js";
 import { voiceChatRouter } from "./routes/voiceChat.js";
+import { initializeWebSocketServer, getServerMetrics, resetMetrics } from "./websocket.js";
 
 export const app = express();
+const httpServer = createServer(app);
+
+// Initialize WebSocket server
+const io = initializeWebSocketServer(httpServer);
 
 app.use(
   cors({
@@ -23,6 +29,17 @@ app.get("/health", (_, res) => {
   });
 });
 
+// Metrics endpoint
+app.get("/metrics", (_, res) => {
+  res.json(getServerMetrics());
+});
+
+// Reset metrics endpoint (POST for safety)
+app.post("/metrics/reset", (_, res) => {
+  resetMetrics();
+  res.json({ message: "Metrics reset successfully" });
+});
+
 app.use((error, _req, res, _next) => {
   if (error?.type === "entity.too.large") {
     res.status(413).json({
@@ -40,7 +57,8 @@ app.use((error, _req, res, _next) => {
 });
 
 export function startServer() {
-  app.listen(config.port, () => {
+  httpServer.listen(config.port, () => {
     console.log(`Shuggi server running on http://localhost:${config.port}`);
+    console.log(`WebSocket available at ws://localhost:${config.port}`);
   });
 }

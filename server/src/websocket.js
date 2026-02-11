@@ -4,12 +4,12 @@
  */
 
 import { Server } from 'socket.io';
-import { queryRouter } from '../utils/queryRouter.js';
-import { responseCache } from '../utils/responseCache.js';
-import { generateAssistantReply } from '../llm/ollama.js';
-import { detectEmotion } from '../utils/emotion.js';
-import { transcribeAudioBuffer } from '../voice/stt.js';
-import { config } from '../config.js';
+import { queryRouter } from './utils/queryRouter.js';
+import { responseCache } from './utils/responseCache.js';
+import { generateAssistantReply } from './llm/ollama.js';
+import { detectEmotion } from './utils/emotion.js';
+import { transcribeAudioBuffer } from './voice/stt.js';
+import { config } from './config.js';
 
 // Production metrics
 const metrics = {
